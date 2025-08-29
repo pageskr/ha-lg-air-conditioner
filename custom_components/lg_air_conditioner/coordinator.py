@@ -67,6 +67,14 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
     async def async_config_entry_first_refresh(self) -> None:
         """Perform first refresh and initialize connection."""
         await self._async_initialize_connection()
+        
+        # For MQTT mode, request initial state after connection
+        if self.entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_MQTT:
+            await asyncio.sleep(1)  # Give MQTT time to connect
+            for device_num in self.devices:
+                await self._client.async_request_state(device_num)
+                await asyncio.sleep(0.5)  # Small delay between requests
+        
         await super().async_config_entry_first_refresh()
 
     async def _async_initialize_connection(self) -> None:
@@ -95,7 +103,10 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
         if device_num in self.devices:
             self.devices[device_num].update_from_hex(state_data)
             self._last_states[device_num] = state_data
-            self.async_set_updated_data(self.devices)
+            # Schedule the update in the event loop
+            self.hass.loop.call_soon_threadsafe(
+                lambda: self.async_set_updated_data(self.devices)
+            )
 
     async def _async_update_data(self) -> Dict[str, LGAirConditionerDevice]:
         """Fetch data from API endpoint."""

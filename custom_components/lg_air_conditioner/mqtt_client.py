@@ -56,26 +56,41 @@ class LGMQTTClient:
 
         def on_message(client, userdata, msg):
             try:
+                _LOGGER.debug("MQTT message received on topic %s: %s", msg.topic, msg.payload[:20])
+                
                 if msg.topic == self.topic_recv:
                     # Handle raw binary data from ew11b/recv
                     hex_data = binascii.hexlify(msg.payload).decode()
+                    _LOGGER.debug("Received hex data: %s", hex_data)
+                    
                     if len(hex_data) >= 32:
                         if len(hex_data) > 32:
                             hex_data = hex_data[:32]
                         device_num = hex_data[8:10]
+                        _LOGGER.debug("Device number extracted: %s", device_num)
+                        
                         # Check if value changed
                         if self._last_values.get(device_num) != hex_data:
                             self._last_values[device_num] = hex_data
+                            # Call the callback directly in the executor
                             self.hass.add_job(self.callback, device_num, hex_data)
-                elif msg.topic.startswith(self.topic_state.split("/")[0]):
+                            _LOGGER.info("State updated for device %s", device_num)
+                    else:
+                        _LOGGER.warning("Received data too short: %d bytes", len(hex_data))
+                        
+                elif msg.topic.startswith(self.topic_state.replace("{device_num}", "")):
                     # Handle state messages from lgac/state/{device_num}
                     device_num = msg.topic.split("/")[-1]
-                    hex_data = msg.payload.decode()
+                    hex_data = msg.payload.decode('utf-8')
+                    _LOGGER.debug("State message for device %s: %s", device_num, hex_data)
+                    
                     if self._last_values.get(device_num) != hex_data:
                         self._last_values[device_num] = hex_data
                         self.hass.add_job(self.callback, device_num, hex_data)
+                        _LOGGER.info("State updated for device %s from state topic", device_num)
+                        
             except Exception as err:
-                _LOGGER.error("Error processing MQTT message: %s", err)
+                _LOGGER.exception("Error processing MQTT message: %s", err)
 
         def on_disconnect(client, userdata, rc):
             self._connected = False
@@ -110,9 +125,17 @@ class LGMQTTClient:
         from .const import STATE_REQUEST_PACKET_FORMAT
         packet = STATE_REQUEST_PACKET_FORMAT.format(device_num=device_num)
         
-        await self.hass.async_add_executor_job(
+        _LOGGER.info("Requesting state for device %s with packet: %s", device_num, packet)
+        
+        # Publish as hex string (lgac_forward.py expects hex string)
+        result = await self.hass.async_add_executor_job(
             self._client.publish, self.topic_send, packet
         )
+        
+        if result.rc == 0:
+            _LOGGER.debug("State request sent successfully for device %s", device_num)
+        else:
+            _LOGGER.error("Failed to send state request for device %s, rc=%s", device_num, result.rc)
 
     async def async_send_command(self, command: str) -> bool:
         """Send command via MQTT."""

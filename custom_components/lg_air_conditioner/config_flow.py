@@ -163,10 +163,15 @@ class LGAirConditionerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 client.username_pw_set(username, password)
             
             connected = False
+            error_msg = None
             
             def on_connect(client, userdata, flags, rc):
-                nonlocal connected
-                connected = rc == 0
+                nonlocal connected, error_msg
+                if rc == 0:
+                    connected = True
+                else:
+                    error_msg = f"Connection failed with code {rc}"
+                    _LOGGER.error("MQTT connection failed: %s", error_msg)
             
             client.on_connect = on_connect
             client.connect(broker, port, 60)
@@ -181,6 +186,10 @@ class LGAirConditionerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             client.loop_stop()
             client.disconnect()
             
+            if not connected and error_msg:
+                _LOGGER.error("MQTT test connection failed: %s", error_msg)
+            
             return connected
-        except Exception:
+        except Exception as e:
+            _LOGGER.error("MQTT connection test error: %s", e)
             return False
