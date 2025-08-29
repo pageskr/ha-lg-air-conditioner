@@ -1,0 +1,45 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "LG 에어컨 설정",
+                "description": "LG 에어컨 통합 구성",
+                "data": {
+                    "name": "통합 이름",
+                    "connection_type": "연결 방식"
+                }
+            },
+            "socket": {
+                "title": "소켓 구성",
+                "description": "EW11 장치에 대한 소켓 연결 구성",
+                "data": {
+                    "socket_host": "호스트 IP 주소",
+                    "socket_port": "포트",
+                    "scan_interval": "스캔 간격 (초)"
+                }
+            },
+            "mqtt": {
+                "title": "MQTT 구성",
+                "description": "MQTT 브로커 연결 구성",
+                "data": {
+                    "mqtt_broker": "MQTT 브로커",
+                    "mqtt_port": "MQTT 포트",
+                    "mqtt_username": "사용자 이름 (선택사항)",
+                    "mqtt_password": "비밀번호 (선택사항)",
+                    "mqtt_topic_state": "상태 토픽 템플릿",
+                    "mqtt_topic_send": "명령 전송 토픽",
+                    "mqtt_topic_recv": "데이터 수신 토픽",
+                    "scan_interval": "스캔 간격 (초)"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "연결 실패",
+            "invalid_auth": "잘못된 인증",
+            "unknown": "예상치 못한 오류"
+        },
+        "abort": {
+            "already_configured": "기기가 이미 구성되었습니다"
+        }
+    }
+}

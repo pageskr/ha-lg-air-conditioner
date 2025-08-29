@@ -1,0 +1,304 @@
+  - sensor:
+
+    - name: lgac_01_state
+      unique_id: lgac_01_state
+      icon: >-
+        {% if has_value("sensor.lgac_01_scan") %} mdi:barcode-scan
+        {% else %} mdi:barcode-off
+        {% endif %}
+      state: >-
+        {% set room = "lgac_01"[-2::] | int(base=16) %}
+        {% set scanner = [states.sensor.lgac_01_scan] | sort(attribute="last_changed", reverse=true) %}
+        {% set packets = scanner[0].state.split("\n") %}
+        {% set packet = namespace(data="", sum=0) %}
+        {% set csumodd = 0 %}
+        {% set csumeven = 0 %}
+        {% if has_value("sensor.lgac_01_state") %}
+          {% set packet.data = states("sensor.lgac_01_state") %}
+        {% else %}
+          {% set room_p = "%(x)02X" | format(x = room) %}
+          {% set packet.data = "1002a300"+room_p+"004a08706f6f28000c32c400" %}
+        {% endif %}
+        {% if scanner[0].state not in ["unavailable","unknown",none] %}
+          {% for i in range(0, packets|count) %}
+            {% if packets[i] | length == 32 and packets[i][8:10] | int(base=16) == room %}
+              {% for j in range(0,29,2) %}
+                {% set packet.sum = packet.sum + packets[i][j:j+2] | int(base=16) %}
+              {% endfor %}
+              {% set checksum = packet.sum | bitwise_and(255) %}
+              {% set csumodd = checksum | bitwise_and(170) %}
+              {% set csumeven = 85 - (checksum | bitwise_and(85)) %}
+              {% set checksum = csumodd + csumeven %}
+              {% if checksum == packets[i][30:32] | int(base=16) %}
+                {% set packet.data = packets[i] %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        {{ packet.data }}
+      attributes:
+        room: >-
+          {{ "%(x)02X" | format(x = "lgac_01"[-2::] | int) }}
+        operon: >-
+          {{ "%(x)02X" | format(x = states("switch.lgac_01_lock_sw") | replace("off",3) | replace("on",7) | int) }}
+        operoff: >-
+          {{ "%(x)02X" | format(x = states("switch.lgac_01_lock_sw") | replace("off",2) | replace("on",6) | int) }}
+        lockon: >-
+          {{ "%(x)02X" | format(x = states("switch.lgac_01_oper_sw") | replace("off",6) | replace("on",7) | int) }}
+        lockoff: >-
+          {{ "%(x)02X" | format(x = states("switch.lgac_01_oper_sw") | replace("off",2) | replace("on",3) | int) }}
+        operscan: >-
+          {{ "%(x)02X" | format(x = 0 | int) }}
+        opermode: >-
+          {% if is_state("climate.lgac_01_cm","off") %}
+            {% set hvac_mode = state_attr("climate.lgac_01_cm","last_hvac_mode") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% else %}
+            {% set hvac_mode = states("climate.lgac_01_cm") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% endif %}
+          {% set fan_mode = state_attr("climate.lgac_01_cm","fan_mode") | replace("low",16) | replace("medium",32) | replace("high",48) | replace("auto",64) | replace("silent",80) | replace("power",96) | replace("unknown",0) | replace("unavailable",0) | int %}
+          {% set swing_mode = state_attr("climate.lgac_01_cm","swing_mode") | replace("fix",0) | replace("auto",8) | replace("unknown",0) | replace("unavailable",0) | int %}
+          {{ "%(x)02X" | format(x = hvac_mode + fan_mode + swing_mode) }}
+        temperature: >-
+          {{ "%(x)02X" | format(x = state_attr("climate.lgac_01_cm","temperature") | int - 15) }}
+        checksumon: >-
+          {% set room = "lgac_01"[-2::] | int(base=16) %}
+          {% set operon = states("switch.lgac_01_lock_sw") | replace("off",3) | replace("on",7) | int %}
+          {% if is_state("climate.lgac_01_cm","off") %}
+            {% set hvac_mode = state_attr("climate.lgac_01_cm","last_hvac_mode") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% else %}
+            {% set hvac_mode = states("climate.lgac_01_cm") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% endif %}
+          {% set fan_mode = state_attr("climate.lgac_01_cm","fan_mode") | replace("low",16) | replace("medium",32) | replace("high",48) | replace("auto",64) | replace("silent",80) | replace("power",96) | int %}
+          {% set swing_mode = state_attr("climate.lgac_01_cm","swing_mode") | replace("fix",0) | replace("auto",8) | int %}
+          {% set opermode = hvac_mode + fan_mode + swing_mode %}
+          {% set temperature = state_attr("climate.lgac_01_cm","temperature") | int - 15 %}
+          {% set checksumon = ("80" | int(base=16) + "00" | int(base=16) + "A3" | int(base=16) + room + operon + temperature + opermode) | bitwise_and(255) %}
+          {% set checksumon = checksumon | bitwise_and(170) + 85 - (checksumon | bitwise_and(85)) %}
+          {{ "%(x)02X" | format(x = checksumon) }}
+        checksumoff: >-
+          {% set room = "lgac_01"[-2::] | int(base=16) %}
+          {% set operoff = states("switch.lgac_01_lock_sw") | replace("off",2) | replace("on",6) | int %}
+          {% if is_state("climate.lgac_01_cm","off") %}
+            {% set hvac_mode = state_attr("climate.lgac_01_cm","last_hvac_mode") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% else %}
+            {% set hvac_mode = states("climate.lgac_01_cm") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% endif %}
+          {% set fan_mode = state_attr("climate.lgac_01_cm","fan_mode") | replace("low",16) | replace("medium",32) | replace("high",48) | replace("auto",64) | replace("silent",80) | replace("power",96) | int %}
+          {% set swing_mode = state_attr("climate.lgac_01_cm","swing_mode") | replace("fix",0) | replace("auto",8) | int %}
+          {% set opermode = hvac_mode + fan_mode + swing_mode %}
+          {% set temperature = state_attr("climate.lgac_01_cm","temperature") | int - 15 %}
+          {% set checksumoff = ("80" | int(base=16) + "00" | int(base=16) + "A3" | int(base=16) + room + operoff + temperature + opermode) | bitwise_and(255) %}
+          {% set checksumoff = checksumoff | bitwise_and(170) + 85 - (checksumoff | bitwise_and(85)) %}
+          {{ "%(x)02X" | format(x = checksumoff) }}
+        checksumlockon: >-
+          {% set room = "lgac_01"[-2::] | int(base=16) %}
+          {% set lockon = states("switch.lgac_01_oper_sw") | replace("off",6) | replace("on",7) | int %}
+          {% if is_state("climate.lgac_01_cm","off") %}
+            {% set hvac_mode = state_attr("climate.lgac_01_cm","last_hvac_mode") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% else %}
+            {% set hvac_mode = states("climate.lgac_01_cm") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% endif %}
+          {% set fan_mode = state_attr("climate.lgac_01_cm","fan_mode") | replace("low",16) | replace("medium",32) | replace("high",48) | replace("auto",64) | replace("silent",80) | replace("power",96) | int %}
+          {% set swing_mode = state_attr("climate.lgac_01_cm","swing_mode") | replace("fix",0) | replace("auto",8) | int %}
+          {% set opermode = hvac_mode + fan_mode + swing_mode %}
+          {% set temperature = state_attr("climate.lgac_01_cm","temperature") | int - 15 %}
+          {% set checksumlockon = ("80" | int(base=16) + "00" | int(base=16) + "A3" | int(base=16) + room + lockon + temperature + opermode) | bitwise_and(255) %}
+          {% set checksumlockon = checksumlockon | bitwise_and(170) + 85 - (checksumlockon | bitwise_and(85)) %}
+          {{ "%(x)02X" | format(x = checksumlockon) }}
+        checksumlockoff: >-
+          {% set room = "lgac_01"[-2::] | int(base=16) %}
+          {% set lockoff = states("switch.lgac_01_oper_sw") | replace("off",2) | replace("on",3) | int %}
+          {% if is_state("climate.lgac_01_cm","off") %}
+            {% set hvac_mode = state_attr("climate.lgac_01_cm","last_hvac_mode") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% else %}
+            {% set hvac_mode = states("climate.lgac_01_cm") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% endif %}
+          {% set fan_mode = state_attr("climate.lgac_01_cm","fan_mode") | replace("low",16) | replace("medium",32) | replace("high",48) | replace("auto",64) | replace("silent",80) | replace("power",96) | int %}
+          {% set swing_mode = state_attr("climate.lgac_01_cm","swing_mode") | replace("fix",0) | replace("auto",8) | int %}
+          {% set opermode = hvac_mode + fan_mode + swing_mode %}
+          {% set temperature = state_attr("climate.lgac_01_cm","temperature") | int - 15 %}
+          {% set checksumlockoff = ("80" | int(base=16) + "00" | int(base=16) + "A3" | int(base=16) + room + lockoff + temperature + opermode) | bitwise_and(255) %}
+          {% set checksumlockoff = checksumlockoff | bitwise_and(170) + 85 - (checksumlockoff | bitwise_and(85)) %}
+          {{ "%(x)02X" | format(x = checksumlockoff) }}
+        checksumscan: >-
+          {% set room = "lgac_01"[-2::] | int(base=16) %}
+          {% set operscan = 0 | int %}
+          {% if is_state("climate.lgac_01_cm","off") %}
+            {% set hvac_mode = state_attr("climate.lgac_01_cm","last_hvac_mode") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% else %}
+            {% set hvac_mode = states("climate.lgac_01_cm") | replace("cool",0) | replace("dry",1) | replace("fan_only",2) | replace("auto",3) | replace("heat",4) | replace("off",0) | int %}
+          {% endif %}
+          {% set fan_mode = state_attr("climate.lgac_01_cm","fan_mode") | replace("low",16) | replace("medium",32) | replace("high",48) | replace("auto",64) | replace("silent",80) | replace("power",96) | replace("unknown",0) | replace("unavailable",0) | int %}
+          {% set swing_mode = state_attr("climate.lgac_01_cm","swing_mode") | replace("fix",0) | replace("auto",8) | replace("unknown",0) | replace("unavailable",0) | int %}
+          {% set opermode = hvac_mode + fan_mode + swing_mode %}
+          {% set temperature = state_attr("climate.lgac_01_cm","temperature") | int - 15 %}
+          {% set checksumscan = ("80" | int(base=16) + "00" | int(base=16) + "A3" | int(base=16) + room + operscan + temperature + opermode) | bitwise_and(255) %}
+          {% set checksumscan = checksumscan | bitwise_and(170) + 85 - (checksumscan | bitwise_and(85)) %}
+          {{ "%(x)02X" | format(x = checksumscan) }}
+
+    - name: lgac_01_hvac_mode
+      unique_id: lgac_01_hvac_mode
+      icon: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[12:14] is defined %}
+          {% set data = states("sensor.lgac_01_state")[12:14] | int(base=16) | bitwise_and(7) %}
+          {% if data == 0 %} mdi:snowflake
+          {% elif data == 1 %} mdi:water-percent
+          {% elif data == 2 %} mdi:fan
+          {% elif data == 3 %} mdi:rotate-3d-variant
+          {% elif data == 4 %} mdi:fire
+          {% else %} mdi:sync-alert
+          {% endif %}
+        {% else %} mdi:sync-alert
+        {% endif %}
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[12:14] is defined %}
+          {% set data = states("sensor.lgac_01_state")[12:14] | int(base=16) | bitwise_and(7) %}
+          {% if data == 0 %} cool
+          {% elif data == 1 %} dry
+          {% elif data == 2 %} fan_only
+          {% elif data == 3 %} auto
+          {% elif data == 4 %} heat
+          {% else %} {{ states("sensor.lgac_01_hvac_mode") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_hvac_mode") }}
+        {% endif %}
+
+    - name: lgac_01_temperature
+      unique_id: lgac_01_temperature
+      device_class: temperature
+      icon: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[16:18] is defined %}
+          {% set data = (64-((states("sensor.lgac_01_state")[16:18] | int(base=16))/3)) | round(1) %}
+          {% if data < 28 %} mdi:home-thermometer-outline
+          {% elif data >= 28 %} mdi:home-thermometer
+          {% else %} mdi:sync-alert
+          {% endif %}
+        {% else %} mdi:sync-alert
+        {% endif %}
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[16:18] is defined %}
+          {% set data = states("sensor.lgac_01_state")[16:18] | int(base=16) %}
+          {% if data > 40 %} {{ 64-((data)/3) | round(1) }}
+          {% elif data <= 40 %} {{ states("sensor.lgac_01_temperature") }}
+          {% else %} {{ states("sensor.lgac_01_temperature") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_temperature") }}
+        {% endif %}
+      unit_of_measurement: °C
+
+    - name: lgac_01_set_temperature
+      unique_id: lgac_01_set_temperature
+      device_class: temperature
+      icon: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[14:16] is defined %}
+          {% set data = ((states("sensor.lgac_01_state")[14:16] | int(base=16))+15) %}
+          {% if data < 24 %} mdi:thermometer-alert
+          {% elif data >= 24 %} mdi:thermometer
+          {% else %} mdi:sync-alert
+          {% endif %}
+        {% else %} mdi:sync-alert
+        {% endif %}
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[14:16] is defined %}
+          {% set data = ((states("sensor.lgac_01_state")[14:16] | int(base=16))+15) %}
+          {% if data %} {{ data }}
+          {% else %} {{ states("sensor.lgac_01_set_temperature") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_set_temperature") }}
+        {% endif %}
+      unit_of_measurement: °C
+
+    - name: lgac_01_swing_mode
+      unique_id: lgac_01_swing_mode
+      icon: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[12:14] is defined %}
+          {% set data = states("sensor.lgac_01_state")[12:14] | int(base=16) | bitwise_and(8) %}
+          {% if data == 0 %} mdi:ray-start-arrow
+          {% elif data == 8 %} mdi:arrow-decision-auto
+          {% else %} mdi:sync-alert
+          {% endif %}
+        {% else %} mdi:sync-alert
+        {% endif %}
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[12:14] is defined %}
+          {% set data = states("sensor.lgac_01_state")[12:14] | int(base=16) | bitwise_and(8) %}
+          {% if data == 0 %} fix
+          {% elif data == 8 %} auto
+          {% else %} {{ states("sensor.lgac_01_swing_mode") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_swing_mode") }}
+        {% endif %}
+
+    - name: lgac_01_fan_mode
+      unique_id: lgac_01_fan_mode
+      icon: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[12:14] is defined %}
+          {% set data = states("sensor.lgac_01_state")[12:14] | int(base=16) | bitwise_and(112) %}
+          {% if data == 16 %} mdi:fan-speed-1
+          {% elif data == 32 %} mdi:fan-speed-2
+          {% elif data == 48 %} mdi:fan-speed-3
+          {% elif data == 64 %} mdi:fan-auto
+          {% elif data == 80 %} mdi:fan-minus
+          {% elif data == 96 %} mdi:car-turbocharger
+          {% else %} mdi:sync-alert
+          {% endif %}
+        {% else %} mdi:sync-alert
+        {% endif %}
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[12:14] is defined %}
+          {% set data = states("sensor.lgac_01_state")[12:14] | int(base=16) | bitwise_and(112) %}
+          {% if data == 16 %} low
+          {% elif data == 32 %} medium
+          {% elif data == 48 %} high
+          {% elif data == 64 %} auto
+          {% elif data == 80 %} silent
+          {% elif data == 96 %} power
+          {% else %} {{ states("sensor.lgac_01_fan_mode") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_fan_mode") }}
+        {% endif %}
+
+    - name: lgac_01_pipe1_temperature
+      unique_id: lgac_01_pipe1_temperature
+      device_class: temperature
+      icon: mdi:thermometer-chevron-down
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[18:20] is defined %}
+          {% set data = states("sensor.lgac_01_state")[18:20] | int(base=16) %}
+          {% if data > 40 %} {{ 64-((data)/3) | round(1) }}
+          {% elif data <= 40 %} {{ states("sensor.lgac_01_pipe2_temperature") }}
+          {% else %} {{ states("sensor.lgac_01_pipe1_temperature") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_pipe1_temperature") }}
+        {% endif %}
+      unit_of_measurement: °C
+
+    - name: lgac_01_pipe2_temperature
+      unique_id: lgac_01_pipe2_temperature
+      device_class: temperature
+      icon: mdi:thermometer-chevron-down
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[20:22] is defined %}
+          {% set data = states("sensor.lgac_01_state")[20:22] | int(base=16) %}
+          {% if data > 40 %} {{ 64-((data)/3) | round(1) }}
+          {% elif data <= 40 %} {{ states("sensor.lgac_01_pipe2_temperature") }}
+          {% else %} {{ states("sensor.lgac_01_pipe2_temperature") }}
+          {% endif %}
+        {% else %} {{ states("sensor.lgac_01_pipe2_temperature") }}
+        {% endif %}
+      unit_of_measurement: °C
+
+    - name: lgac_01_outdoor_temperature
+      unique_id: lgac_01_outdoor_temperature
+      device_class: temperature
+      icon: mdi:hydraulic-oil-temperature
+      state: >-
+        {% if has_value("sensor.lgac_01_state") and states("sensor.lgac_01_state")[22:24] is defined %}
+          {% set data = states("sensor.lgac_01_state")[22:24] | int(base=16) %}
+          {% if data > 40 %} {{ 64-((data)/3) | round(1) }}
+          {% elif data <= 40 %} 0
+          {% else %} {{ states("lgac_01_outdoor_temperature") }}
+          {% endif %}
+        {% else %} {{ states("lgac_01_outdoor_temperature") }}
+        {% endif %}
+      unit_of_measurement: °C

@@ -1,0 +1,46 @@
+alias: 시스템에어컨 가동상태 정보요청
+description: ""
+mode: single
+triggers:
+  - seconds: /5
+    trigger: time_pattern
+conditions:
+  - condition: state
+    entity_id: binary_sensor.ew11b
+    state: "on"
+actions:
+  - repeat:
+      sequence:
+        - if:
+            - condition: template
+              value_template: "{{ repeat.index > 1 }}"
+          then:
+            - delay:
+                hours: 0
+                minutes: 0
+                seconds: 1
+                milliseconds: 0
+        - variables:
+            sensor: sensor.lgac_0{{ repeat.index }}_state
+            room: "{{ state_attr(sensor, \"room\") | string }}"
+            operscan: "{{ state_attr(sensor, \"operscan\") }}"
+            opermode: "{{ state_attr(sensor, \"opermode\") }}"
+            temperature: "{{ state_attr(sensor, \"temperature\") }}"
+            checksumscan: "{{ state_attr(sensor, \"checksumscan\") }}"
+            payload: |-
+              {% if operscan and opermode and temperature and checksumscan %}
+                8000A3{{ room }}{{ operscan }}{{ opermode }}{{ temperature }}{{ checksumscan }}
+              {% else %}
+                {% if repeat.index == 1 %} 8000A30100000071
+                {% elif repeat.index == 2 %} 8000A30200000070
+                {% elif repeat.index == 3 %} 8000A30300000073
+                {% elif repeat.index == 4 %} 8000A30400000072
+                {% endif %}
+              {% endif %}
+        - action: mqtt.publish
+          data:
+            topic: lgac/scan
+            payload: "{{ payload }}"
+            qos: 1
+            retain: false
+      count: 4

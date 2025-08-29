@@ -1,0 +1,14 @@
+{
+    "name": "LG Air Conditioner",
+    "content_in_root": false,
+    "render_readme": true,
+    "homeassistant": "2023.0.0",
+    "hacs": "1.0.0",
+    "domains": [
+        "climate",
+        "sensor",
+        "binary_sensor",
+        "switch"
+    ],
+    "iot_class": "Local Polling"
+}

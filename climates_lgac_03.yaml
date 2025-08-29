@@ -1,0 +1,38 @@
+  - platform: lgac_pi485
+    name: 훈이방에어컨
+    unique_id: lgac_03_cm
+    temp_sensor: sensor.lgac_03_temperature
+    power_template: '{{ states("binary_sensor.lgac_03_oper") }}'
+    min_temp: 18
+    max_temp: 30
+    target_temp: 26
+    target_temp_step: 0.5
+    hvac_mode: 'off'
+    fan_mode: auto
+    swing_mode: auto
+    customize:
+      hvac_modes:
+        - 'off'
+        - cool
+        - fan_only
+        - dry
+        - heat
+        - auto
+      fan_modes:
+        - silent
+        - low
+        - medium
+        - high
+        - power
+        - auto
+      preset_modes:
+        - away
+        - eco
+        - boost
+        - comfort
+        - home
+        - sleep
+        - activity
+      swing_modes:
+        - auto
+        - fix

@@ -1,0 +1,65 @@
+  - platform: template
+    switches:
+
+      lgac_02_oper_sw:
+        unique_id: lgac_02_oper_sw
+        friendly_name: 안방에어컨 전원
+        value_template: >-
+          {% if has_value("binary_sensor.lgac_02_oper") %}
+            {{ is_state("binary_sensor.lgac_02_oper", "on") }}
+          {% else %} off
+          {% endif %}
+        turn_on:
+          - service: shell_command.lgac_02_oper_on
+          - service: shell_command.lgac_02_oper_on
+          - service: homeassistant.update_entity
+            target:
+              entity_id: sensor.lgac_02_scan
+        turn_off:
+          - service: shell_command.lgac_02_oper_off
+          - service: shell_command.lgac_02_oper_off
+          - service: homeassistant.update_entity
+            target:
+              entity_id: sensor.lgac_02_scan
+        icon_template: >-
+          {% if has_value("sensor.lgac_02_state") and states("sensor.lgac_02_state")[12:14] is defined %}
+            {% set data = states("sensor.lgac_02_state")[12:14] | int(base=16) | bitwise_and(7) %}
+            {% if data == 0 %} mdi:snowflake
+            {% elif data == 1 %} mdi:water-percent
+            {% elif data == 2 %} mdi:fan
+            {% elif data == 3 %} mdi:rotate-3d-variant
+            {% elif data == 4 %} mdi:fire
+            {% else %} mdi:sync-alert
+            {% endif %}
+          {% else %} mdi:sync-alert
+          {% endif %}
+
+      lgac_02_lock_sw:
+        unique_id: lgac_02_lock_sw
+        friendly_name: 안방에어컨 잠금
+        value_template: >-
+          {% if has_value("binary_sensor.lgac_02_lock") %}
+            {{ is_state("binary_sensor.lgac_02_lock", "on") }}
+          {% else %} off
+          {% endif %}
+        turn_on:
+          - service: shell_command.lgac_02_lock_on
+          - service: shell_command.lgac_02_lock_on
+          - service: homeassistant.update_entity
+            target:
+              entity_id: sensor.lgac_02_scan
+        turn_off:
+          - service: shell_command.lgac_02_lock_off
+          - service: shell_command.lgac_02_lock_off
+          - service: homeassistant.update_entity
+            target:
+              entity_id: sensor.lgac_02_scan
+        icon_template: >-
+          {% if has_value("sensor.lgac_02_state") and states("sensor.lgac_02_state")[2:4] is defined %}
+            {% set data = states("sensor.lgac_02_state")[2:4] | int(base=16) %}
+            {% if data == 2 or data == 3 %} mdi:lock-open-outline
+            {% elif data == 6 or data == 7 %} mdi:lock
+            {% else %} mdi:sync-alert
+            {% endif %}
+          {% else %} mdi:sync-alert
+          {% endif %}

@@ -1,0 +1,45 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "LG Air Conditioner Setup",
+                "description": "Configure LG Air Conditioner integration",
+                "data": {
+                    "name": "Integration name",
+                    "connection_type": "Connection type"
+                }
+            },
+            "socket": {
+                "title": "Socket Configuration",
+                "description": "Configure socket connection to EW11 device",
+                "data": {
+                    "socket_host": "Host IP address",
+                    "socket_port": "Port",
+                    "scan_interval": "Scan interval (seconds)"
+                }
+            },
+            "mqtt": {
+                "title": "MQTT Configuration",
+                "description": "Configure MQTT broker connection",
+                "data": {
+                    "mqtt_broker": "MQTT broker",
+                    "mqtt_port": "MQTT port",
+                    "mqtt_username": "Username (optional)",
+                    "mqtt_password": "Password (optional)",
+                    "mqtt_topic_state": "State topic template",
+                    "mqtt_topic_send": "Send command topic",
+                    "mqtt_topic_recv": "Receive data topic",
+                    "scan_interval": "Scan interval (seconds)"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect",
+            "invalid_auth": "Invalid authentication",
+            "unknown": "Unexpected error"
+        },
+        "abort": {
+            "already_configured": "Device is already configured"
+        }
+    }
+}

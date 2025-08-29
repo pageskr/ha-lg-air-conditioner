@@ -1,0 +1,15 @@
+{
+  "domain": "lg_air_conditioner",
+  "name": "LG Air Conditioner",
+  "codeowners": ["@pagesinkorea"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/pagesinkorea/ha-lg-air-conditioner",
+  "homekit": {},
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/pagesinkorea/ha-lg-air-conditioner/issues",
+  "requirements": ["paho-mqtt==1.6.1"],
+  "ssdp": [],
+  "version": "1.0.0",
+  "zeroconf": []
+}

@@ -1,0 +1,10 @@
+{
+  "domain": "lgac_pi485",
+  "name": "lgac pi485 Climate",
+  "documentation": "https://github.com/Anonym-tsk/home-assistant-components/blob/master/README.md",
+  "dependencies": [],
+  "codeowners": ["@anonym-tsk"],
+  "version": 0,
+  "requirements": [],
+  "homeassistant": "0.96.0"
+}
