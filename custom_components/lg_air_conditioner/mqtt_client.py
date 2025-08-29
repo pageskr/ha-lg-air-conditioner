@@ -47,10 +47,12 @@ class LGMQTTClient:
                 _LOGGER.info("Connected to MQTT broker")
                 # Subscribe to receive topic
                 client.subscribe(self.topic_recv)
+                _LOGGER.info("Subscribed to topic: %s", self.topic_recv)
                 # Subscribe to state topics for all devices
                 for i in range(1, 5):
                     topic = self.topic_state.format(device_num=f"{i:02d}")
                     client.subscribe(topic)
+                    _LOGGER.info("Subscribed to state topic: %s", topic)
             else:
                 _LOGGER.error("Failed to connect to MQTT broker, code %s", rc)
 
@@ -58,36 +60,40 @@ class LGMQTTClient:
             try:
                 _LOGGER.debug("MQTT message received on topic %s: %s", msg.topic, msg.payload[:20])
                 
+                # Always process messages on ew11b/recv topic
                 if msg.topic == self.topic_recv:
                     # Handle raw binary data from ew11b/recv
                     hex_data = binascii.hexlify(msg.payload).decode()
-                    _LOGGER.debug("Received hex data: %s", hex_data)
+                    _LOGGER.debug("Received hex data on %s: %s", self.topic_recv, hex_data)
                     
-                    if len(hex_data) >= 32:
+                    # Process all valid state packets (not just responses to our requests)
+                    if len(hex_data) >= 32 and hex_data.upper().startswith("8000B0"):
                         if len(hex_data) > 32:
                             hex_data = hex_data[:32]
-                        device_num = hex_data[8:10]
-                        _LOGGER.debug("Device number extracted: %s", device_num)
+                        device_num = hex_data[8:10].upper()
+                        _LOGGER.debug("State packet detected for device %s", device_num)
                         
-                        # Check if value changed
-                        if self._last_values.get(device_num) != hex_data:
-                            self._last_values[device_num] = hex_data
-                            # Call the callback directly in the executor
-                            self.hass.add_job(self.callback, device_num, hex_data)
-                            _LOGGER.info("State updated for device %s", device_num)
+                        # Process the state update
+                        self.hass.add_job(self.callback, device_num, hex_data.upper())
+                        _LOGGER.info("Processing state update for device %s from %s", device_num, self.topic_recv)
                     else:
-                        _LOGGER.warning("Received data too short: %d bytes", len(hex_data))
+                        if len(hex_data) >= 6:
+                            _LOGGER.debug("Non-state packet received: %s (first 6 chars: %s)", hex_data[:32], hex_data[:6])
+                        else:
+                            _LOGGER.warning("Received data too short: %d bytes", len(hex_data))
                         
                 elif msg.topic.startswith(self.topic_state.replace("{device_num}", "")):
                     # Handle state messages from lgac/state/{device_num}
                     device_num = msg.topic.split("/")[-1]
-                    hex_data = msg.payload.decode('utf-8')
-                    _LOGGER.debug("State message for device %s: %s", device_num, hex_data)
+                    hex_data = msg.payload.decode('utf-8').strip().upper()
+                    _LOGGER.debug("State message for device %s on topic %s: %s", device_num, msg.topic, hex_data)
                     
-                    if self._last_values.get(device_num) != hex_data:
-                        self._last_values[device_num] = hex_data
+                    if len(hex_data) >= 32 and hex_data.startswith("8000B0"):
+                        # Process the state update
                         self.hass.add_job(self.callback, device_num, hex_data)
-                        _LOGGER.info("State updated for device %s from state topic", device_num)
+                        _LOGGER.info("Processing state update for device %s from state topic", device_num)
+                    else:
+                        _LOGGER.warning("Invalid state message format on %s", msg.topic)
                         
             except Exception as err:
                 _LOGGER.exception("Error processing MQTT message: %s", err)

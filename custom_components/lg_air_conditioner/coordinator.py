@@ -101,12 +101,17 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
     def _on_state_update(self, device_num: str, state_data: str) -> None:
         """Handle state updates from MQTT."""
         if device_num in self.devices:
-            self.devices[device_num].update_from_hex(state_data)
-            self._last_states[device_num] = state_data
-            # Schedule the update in the event loop
-            self.hass.loop.call_soon_threadsafe(
-                lambda: self.async_set_updated_data(self.devices)
-            )
+            # Update device and check if state changed
+            state_changed = self.devices[device_num].update_from_hex(state_data)
+            
+            if state_changed:
+                self._last_states[device_num] = state_data
+                # Schedule the update in the event loop only if state changed
+                self.hass.loop.call_soon_threadsafe(
+                    lambda: self.async_set_updated_data(self.devices)
+                )
+            else:
+                _LOGGER.debug("State unchanged for device %s, skipping update", device_num)
 
     async def _async_update_data(self) -> Dict[str, LGAirConditionerDevice]:
         """Fetch data from API endpoint."""
@@ -115,9 +120,9 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
             for device_num in self.devices:
                 if self.entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
                     # Socket mode: send request and get response
-                    state_data = await self._client.async_send_command(
-                        STATE_REQUEST_PACKET_FORMAT.format(device_num=device_num)
-                    )
+                    packet = STATE_REQUEST_PACKET_FORMAT.format(device_num=device_num)
+                    _LOGGER.debug("Sending state request packet for device %s: %s", device_num, packet)
+                    state_data = await self._client.async_send_command(packet)
                     if state_data:
                         self.devices[device_num].update_from_hex(state_data)
                         self._last_states[device_num] = state_data
@@ -165,8 +170,8 @@ class LGAirConditionerEntity(CoordinatorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, device_num)},
             "name": f"LG Air Conditioner {device_num}",
-            "manufacturer": "LG Electronics",
-            "model": "Air Conditioner",
+            "manufacturer": "Pages in Korea (pages.kr)",
+            "model": "LG Air Conditioner",
         }
 
     @property

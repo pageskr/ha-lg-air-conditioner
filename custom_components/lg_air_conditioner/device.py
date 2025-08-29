@@ -1,6 +1,6 @@
 """Device representation for LG Air Conditioner."""
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from .const import (
     HVAC_MODE_MAP,
@@ -26,87 +26,118 @@ class LGAirConditionerDevice:
         self.error_code = "00"
         self.filter_alarm = False
         self._raw_state = None
+        self._last_parsed_state: Dict[str, Any] = {}
 
-    def update_from_hex(self, hex_data: str) -> None:
-        """Update device state from hex data."""
+    def update_from_hex(self, hex_data: str) -> bool:
+        """Update device state from hex data. Returns True if state changed."""
         try:
             # Clean the hex data
             hex_data = hex_data.strip().upper()
             
             if len(hex_data) < 32:
                 _LOGGER.error("Invalid hex data length: %s (len=%d)", hex_data, len(hex_data))
-                return
+                return False
 
+            # Parse state
+            parsed_state = self._parse_hex_data(hex_data)
+            if not parsed_state:
+                return False
+
+            # Check if state changed
+            if parsed_state == self._last_parsed_state:
+                _LOGGER.debug("State unchanged for device %s", self.device_num)
+                return False
+
+            # Update device attributes
             self._raw_state = hex_data
+            self.is_on = parsed_state["power"]
+            self.hvac_mode = parsed_state["mode"]
+            self.target_temperature = parsed_state["target_temp"]
+            self.current_temperature = parsed_state["current_temp"]
+            self.fan_mode = parsed_state["fan_mode"]
+            self.error_code = parsed_state["error_code"]
+            self.filter_alarm = parsed_state["filter_alarm"]
             
-            # Parse the hex data based on the protocol
-            # Response format: 80 00 B0 XX ...
-            # Where XX at position 8-9 is device number
-            # Positions are in hex string (2 chars per byte):
-            # 0-1: 80 (header)
-            # 2-3: 00 
-            # 4-5: B0 (response type)
-            # 6-7: message length or type
-            # 8-9: Device number
-            # 10-11: Power state
-            # 12-13: HVAC mode
-            # 14-15: Set temperature
-            # 16-17: Current temperature
-            # 18-19: Fan mode
-            # 20-21: Error code
-            # 22-23: Filter alarm
-            
-            # Verify this is a state response
-            if not hex_data.startswith("8000B0"):
-                _LOGGER.warning("Not a state response packet: %s", hex_data[:6])
-                return
-            
-            power_state = hex_data[10:12]
-            self.is_on = power_state == POWER_ON
-            
-            mode_state = hex_data[12:14]
-            self.hvac_mode = HVAC_MODE_MAP.get(mode_state, "off")
-            
-            # Temperature conversion (hex to decimal)
-            try:
-                set_temp_hex = hex_data[14:16]
-                set_temp = int(set_temp_hex, 16)
-                # Validate temperature range
-                if 16 <= set_temp <= 30:
-                    self.target_temperature = set_temp
-                else:
-                    _LOGGER.warning("Invalid set temperature: %d", set_temp)
-                
-                current_temp_hex = hex_data[16:18]
-                current_temp = int(current_temp_hex, 16)
-                # Validate temperature range
-                if 0 <= current_temp <= 50:
-                    self.current_temperature = current_temp
-                else:
-                    _LOGGER.warning("Invalid current temperature: %d", current_temp)
-            except ValueError as e:
-                _LOGGER.error("Error parsing temperature values: %s", e)
-            
-            fan_state = hex_data[18:20]
-            self.fan_mode = FAN_MODE_MAP.get(fan_state, "auto")
-            
-            self.error_code = hex_data[20:22]
-            filter_state = hex_data[22:24]
-            self.filter_alarm = filter_state == "01"
+            # Store last parsed state
+            self._last_parsed_state = parsed_state
             
             _LOGGER.info(
-                "Device %s updated - Power: %s, Mode: %s, Target: %s°C, Current: %s°C, Fan: %s, Error: %s",
+                "Device %s state updated - hex parsing state: %s",
                 self.device_num,
-                self.is_on,
-                self.hvac_mode,
-                self.target_temperature,
-                self.current_temperature,
-                self.fan_mode,
-                self.error_code,
+                parsed_state
             )
+            
+            return True
             
         except Exception as err:
             _LOGGER.exception("Error parsing device state for device %s: %s", self.device_num, err)
+            return False
+
+    def _parse_hex_data(self, hex_data: str) -> Optional[Dict[str, Any]]:
+        """Parse hex data and return state dictionary."""
+        try:
+            # Verify this is a state response (80 00 B0 pattern)
+            if not hex_data.startswith("8000B0"):
+                _LOGGER.warning("Not a state response packet: %s", hex_data[:6])
+                return None
+            
+            # Extract device number from packet
+            device_num_hex = hex_data[8:10]
+            if device_num_hex != self.device_num:
+                _LOGGER.warning("Device number mismatch: expected %s, got %s", self.device_num, device_num_hex)
+                return None
+            
+            # Parse power state
+            power_state = hex_data[10:12]
+            is_on = power_state == POWER_ON
+            
+            # Parse HVAC mode
+            mode_state = hex_data[12:14]
+            hvac_mode = HVAC_MODE_MAP.get(mode_state, "off")
+            
+            # Parse temperatures
+            set_temp_hex = hex_data[14:16]
+            set_temp = int(set_temp_hex, 16)
+            # Validate temperature range
+            if not (16 <= set_temp <= 30):
+                _LOGGER.warning("Invalid set temperature: %d", set_temp)
+                set_temp = 24  # Default
+            
+            current_temp_hex = hex_data[16:18]
+            current_temp = int(current_temp_hex, 16)
+            # Validate temperature range
+            if not (0 <= current_temp <= 50):
+                _LOGGER.warning("Invalid current temperature: %d", current_temp)
+                current_temp = 24  # Default
+            
+            # Parse fan mode
+            fan_state = hex_data[18:20]
+            fan_mode = FAN_MODE_MAP.get(fan_state, "auto")
+            
+            # Parse error and filter
+            error_code = hex_data[20:22]
+            filter_state = hex_data[22:24]
+            filter_alarm = filter_state == "01"
+            
+            state = {
+                "device_num": self.device_num,
+                "power": is_on,
+                "mode": hvac_mode,
+                "target_temp": set_temp,
+                "current_temp": current_temp,
+                "fan_mode": fan_mode,
+                "error_code": error_code,
+                "filter_alarm": filter_alarm,
+                "raw_hex": hex_data
+            }
+            
+            _LOGGER.debug("Hex parsing state for device %s: %s", self.device_num, state)
+            
+            return state
+            
+        except Exception as err:
+            _LOGGER.error("Error in _parse_hex_data: %s", err)
+            return None
 
     def get_control_packet(self, power: bool, mode: str, temperature: int, fan: str) -> str:
         """Generate control packet for the device."""
