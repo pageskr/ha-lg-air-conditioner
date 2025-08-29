@@ -50,7 +50,10 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
         self._client = None
         self._last_states: Dict[str, str] = {}
         
-        scan_interval = entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        # Merge config and options
+        self.config = {**entry.data, **entry.options}
+        
+        scan_interval = self.config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         
         super().__init__(
             hass,
@@ -69,7 +72,7 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
         await self._async_initialize_connection()
         
         # For MQTT mode, request initial state after connection
-        if self.entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_MQTT:
+        if self.config[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_MQTT:
             await asyncio.sleep(1)  # Give MQTT time to connect
             for device_num in self.devices:
                 await self._client.async_request_state(device_num)
@@ -79,21 +82,21 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
 
     async def _async_initialize_connection(self) -> None:
         """Initialize the connection based on configuration."""
-        if self.entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
+        if self.config[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
             self._client = LGSocketClient(
-                self.entry.data[CONF_SOCKET_HOST],
-                self.entry.data[CONF_SOCKET_PORT],
+                self.config[CONF_SOCKET_HOST],
+                self.config[CONF_SOCKET_PORT],
             )
         else:
             self._client = LGMQTTClient(
                 self.hass,
-                self.entry.data[CONF_MQTT_BROKER],
-                self.entry.data[CONF_MQTT_PORT],
-                self.entry.data.get(CONF_MQTT_USERNAME),
-                self.entry.data.get(CONF_MQTT_PASSWORD),
-                self.entry.data[CONF_MQTT_TOPIC_STATE],
-                self.entry.data[CONF_MQTT_TOPIC_SEND],
-                self.entry.data[CONF_MQTT_TOPIC_RECV],
+                self.config[CONF_MQTT_BROKER],
+                self.config[CONF_MQTT_PORT],
+                self.config.get(CONF_MQTT_USERNAME),
+                self.config.get(CONF_MQTT_PASSWORD),
+                self.config[CONF_MQTT_TOPIC_STATE],
+                self.config[CONF_MQTT_TOPIC_SEND],
+                self.config[CONF_MQTT_TOPIC_RECV],
                 self._on_state_update,
             )
             await self._client.async_connect()
@@ -118,7 +121,7 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
         try:
             # Request state for all devices
             for device_num in self.devices:
-                if self.entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
+                if self.config[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
                     # Socket mode: send request and get response
                     packet = STATE_REQUEST_PACKET_FORMAT.format(device_num=device_num)
                     _LOGGER.debug("Sending state request packet for device %s: %s", device_num, packet)
@@ -138,7 +141,7 @@ class LGAirConditionerCoordinator(DataUpdateCoordinator):
     async def async_send_command(self, device_num: str, command: str) -> bool:
         """Send command to device."""
         try:
-            if self.entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
+            if self.config[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
                 result = await self._client.async_send_command(command)
                 return result is not None
             else:

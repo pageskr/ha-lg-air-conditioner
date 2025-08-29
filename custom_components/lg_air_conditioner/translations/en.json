@@ -41,5 +41,29 @@
         "abort": {
             "already_configured": "Device is already configured"
         }
+    },
+    "options": {
+        "step": {
+            "socket": {
+                "title": "Socket Configuration",
+                "description": "Update socket connection settings",
+                "data": {
+                    "socket_host": "Host IP address",
+                    "socket_port": "Port",
+                    "scan_interval": "Scan interval (seconds)"
+                }
+            },
+            "mqtt": {
+                "title": "MQTT Configuration",
+                "description": "Update MQTT connection settings",
+                "data": {
+                    "mqtt_broker": "MQTT broker",
+                    "mqtt_port": "MQTT port",
+                    "mqtt_username": "Username (optional)",
+                    "mqtt_password": "Password (optional)",
+                    "scan_interval": "Scan interval (seconds)"
+                }
+            }
+        }
     }
 }

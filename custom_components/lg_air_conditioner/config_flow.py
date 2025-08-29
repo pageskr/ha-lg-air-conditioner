@@ -6,7 +6,7 @@ import socket
 import paho.mqtt.client as mqtt
 
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
 from homeassistant.const import CONF_NAME
@@ -48,6 +48,14 @@ class LGAirConditionerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Initialize."""
         self._data = {}
         self._errors = {}
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        return LGAirConditionerOptionsFlow(config_entry)
 
     async def async_step_user(self, user_input: Optional[Dict[str, Any]] = None):
         """Handle the initial step."""
@@ -193,3 +201,93 @@ class LGAirConditionerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception as e:
             _LOGGER.error("MQTT connection test error: %s", e)
             return False
+
+
+class LGAirConditionerOptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for LG Air Conditioner."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input: Optional[Dict[str, Any]] = None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        if self.config_entry.data[CONF_CONNECTION_TYPE] == CONNECTION_TYPE_SOCKET:
+            return await self.async_step_socket()
+        else:
+            return await self.async_step_mqtt()
+
+    async def async_step_socket(self, user_input: Optional[Dict[str, Any]] = None):
+        """Handle socket options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_SOCKET_HOST,
+                    default=self.config_entry.options.get(
+                        CONF_SOCKET_HOST, self.config_entry.data[CONF_SOCKET_HOST]
+                    ),
+                ): str,
+                vol.Required(
+                    CONF_SOCKET_PORT,
+                    default=self.config_entry.options.get(
+                        CONF_SOCKET_PORT, self.config_entry.data[CONF_SOCKET_PORT]
+                    ),
+                ): int,
+                vol.Required(
+                    CONF_SCAN_INTERVAL,
+                    default=self.config_entry.options.get(
+                        CONF_SCAN_INTERVAL, self.config_entry.data[CONF_SCAN_INTERVAL]
+                    ),
+                ): int,
+            }
+        )
+
+        return self.async_show_form(step_id="socket", data_schema=data_schema)
+
+    async def async_step_mqtt(self, user_input: Optional[Dict[str, Any]] = None):
+        """Handle MQTT options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_MQTT_BROKER,
+                    default=self.config_entry.options.get(
+                        CONF_MQTT_BROKER, self.config_entry.data[CONF_MQTT_BROKER]
+                    ),
+                ): str,
+                vol.Required(
+                    CONF_MQTT_PORT,
+                    default=self.config_entry.options.get(
+                        CONF_MQTT_PORT, self.config_entry.data[CONF_MQTT_PORT]
+                    ),
+                ): int,
+                vol.Optional(
+                    CONF_MQTT_USERNAME,
+                    default=self.config_entry.options.get(
+                        CONF_MQTT_USERNAME, self.config_entry.data.get(CONF_MQTT_USERNAME, "")
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_MQTT_PASSWORD,
+                    default=self.config_entry.options.get(
+                        CONF_MQTT_PASSWORD, self.config_entry.data.get(CONF_MQTT_PASSWORD, "")
+                    ),
+                ): str,
+                vol.Required(
+                    CONF_SCAN_INTERVAL,
+                    default=self.config_entry.options.get(
+                        CONF_SCAN_INTERVAL, self.config_entry.data[CONF_SCAN_INTERVAL]
+                    ),
+                ): int,
+            }
+        )
+
+        return self.async_show_form(step_id="mqtt", data_schema=data_schema)

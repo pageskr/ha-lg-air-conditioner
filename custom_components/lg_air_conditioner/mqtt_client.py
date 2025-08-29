@@ -66,12 +66,22 @@ class LGMQTTClient:
                     hex_data = binascii.hexlify(msg.payload).decode()
                     _LOGGER.debug("Received hex data on %s: %s", self.topic_recv, hex_data)
                     
-                    # Process all valid state packets (not just responses to our requests)
-                    if len(hex_data) >= 32 and hex_data.upper().startswith("8000B0"):
+                    # Process new format packets (10XXa3...)
+                    if len(hex_data) >= 24 and hex_data[:2].upper() == "10" and hex_data[4:6].upper() == "A3":
+                        # Extract target device number from position 8-10
+                        device_num = hex_data[8:10].upper()
+                        _LOGGER.debug("New format state packet detected for device %s", device_num)
+                        
+                        # Process the state update
+                        self.hass.add_job(self.callback, device_num, hex_data.upper())
+                        _LOGGER.info("Processing state update for device %s from %s", device_num, self.topic_recv)
+                        
+                    # Process response format packets (8000B0...)
+                    elif len(hex_data) >= 32 and hex_data.upper().startswith("8000B0"):
                         if len(hex_data) > 32:
                             hex_data = hex_data[:32]
                         device_num = hex_data[8:10].upper()
-                        _LOGGER.debug("State packet detected for device %s", device_num)
+                        _LOGGER.debug("Response format state packet detected for device %s", device_num)
                         
                         # Process the state update
                         self.hass.add_job(self.callback, device_num, hex_data.upper())
@@ -88,7 +98,9 @@ class LGMQTTClient:
                     hex_data = msg.payload.decode('utf-8').strip().upper()
                     _LOGGER.debug("State message for device %s on topic %s: %s", device_num, msg.topic, hex_data)
                     
-                    if len(hex_data) >= 32 and hex_data.startswith("8000B0"):
+                    # Process both packet formats
+                    if (len(hex_data) >= 24 and hex_data[:2] == "10" and hex_data[4:6] == "A3") or \
+                       (len(hex_data) >= 32 and hex_data.startswith("8000B0")):
                         # Process the state update
                         self.hass.add_job(self.callback, device_num, hex_data)
                         _LOGGER.info("Processing state update for device %s from state topic", device_num)
