@@ -32,7 +32,7 @@ async def async_setup_entry(
 
 
 class LGAirConditionerPowerSwitch(LGAirConditionerEntity, SwitchEntity):
-    """LG Air Conditioner power switch entity."""
+    """Power switch."""
 
     def __init__(
         self,
@@ -40,59 +40,71 @@ class LGAirConditionerPowerSwitch(LGAirConditionerEntity, SwitchEntity):
         device_num: str,
     ) -> None:
         """Initialize the switch."""
-        super().__init__(coordinator, device_num, "power_switch")
-        self._attr_icon = "mdi:air-conditioner"
+        super().__init__(coordinator, device_num, "power_sw")
 
     @property
     def name(self) -> str:
         """Return the name of the switch."""
-        return f"에어컨 {self.device_num} 전원 스위치"
+        return f"에어컨 {self.device_num} 전원"
 
     @property
     def is_on(self) -> bool:
-        """Return true if the switch is on."""
+        """Return true if switch is on."""
         return self.device.is_on
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.device.is_available
+    def icon(self) -> str:
+        """Return the icon."""
+        if not self.device.is_available:
+            return "mdi:sync-alert"
+        
+        mode_icons = {
+            "cool": "mdi:snowflake",
+            "dry": "mdi:water-percent",
+            "fan_only": "mdi:fan",
+            "auto": "mdi:rotate-3d-variant",
+            "heat": "mdi:fire",
+        }
+        
+        if self.is_on:
+            return mode_icons.get(self.device.hvac_mode, "mdi:air-conditioner")
+        return "mdi:air-conditioner"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        # Generate control packet to turn on
+        # Generate control packet
         packet = self.device.get_control_packet(
-            True, 
-            self.device.hvac_mode if self.device.hvac_mode != "off" else "cool",
-            self.device.target_temperature,
-            self.device.fan_mode
+            True, self.device.hvac_mode, self.device.target_temperature, self.device.fan_mode
         )
         
-        # Send command
+        # Send command twice as per YAML
         success = await self.coordinator.async_send_command(self.device_num, packet)
         if success:
+            await self.coordinator.async_send_command(self.device_num, packet)
             self.device.is_on = True
             self.async_write_ha_state()
+            # Request state update
+            await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        # Generate control packet to turn off
+        # Generate control packet
         packet = self.device.get_control_packet(
-            False,
-            self.device.hvac_mode,
-            self.device.target_temperature,
-            self.device.fan_mode
+            False, self.device.hvac_mode, self.device.target_temperature, self.device.fan_mode
         )
         
-        # Send command
+        # Send command twice as per YAML
         success = await self.coordinator.async_send_command(self.device_num, packet)
         if success:
+            await self.coordinator.async_send_command(self.device_num, packet)
             self.device.is_on = False
             self.async_write_ha_state()
+            # Request state update
+            await self.coordinator.async_request_refresh()
 
 
 class LGAirConditionerLockSwitch(LGAirConditionerEntity, SwitchEntity):
-    """LG Air Conditioner lock switch entity."""
+    """Lock switch."""
 
     def __init__(
         self,
@@ -100,60 +112,57 @@ class LGAirConditionerLockSwitch(LGAirConditionerEntity, SwitchEntity):
         device_num: str,
     ) -> None:
         """Initialize the switch."""
-        super().__init__(coordinator, device_num, "lock_switch")
+        super().__init__(coordinator, device_num, "lock_sw")
 
     @property
     def name(self) -> str:
         """Return the name of the switch."""
-        return f"에어컨 {self.device_num} 잠금 스위치"
-
-    @property
-    def icon(self) -> str:
-        """Return the icon to use in the frontend."""
-        return "mdi:lock" if self.is_on else "mdi:lock-open"
+        return f"에어컨 {self.device_num} 잠금"
 
     @property
     def is_on(self) -> bool:
-        """Return true if the switch is on (locked)."""
+        """Return true if switch is on."""
         return self.device.is_locked
 
     @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        return self.device.is_available
+    def icon(self) -> str:
+        """Return the icon."""
+        if not self.device.is_available:
+            return "mdi:sync-alert"
+        return "mdi:lock" if self.is_on else "mdi:lock-open-outline"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on (lock)."""
-        # Update lock state
+        # Set lock state first
         self.device.is_locked = True
         
-        # Generate control packet
+        # Generate control packet with current power state
         packet = self.device.get_control_packet(
-            self.device.is_on,
-            self.device.hvac_mode,
-            self.device.target_temperature,
-            self.device.fan_mode
+            self.device.is_on, self.device.hvac_mode, self.device.target_temperature, self.device.fan_mode
         )
         
-        # Send command
+        # Send command twice as per YAML
         success = await self.coordinator.async_send_command(self.device_num, packet)
         if success:
+            await self.coordinator.async_send_command(self.device_num, packet)
             self.async_write_ha_state()
+            # Request state update
+            await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off (unlock)."""
-        # Update lock state
+        # Set lock state first
         self.device.is_locked = False
         
-        # Generate control packet
+        # Generate control packet with current power state
         packet = self.device.get_control_packet(
-            self.device.is_on,
-            self.device.hvac_mode,
-            self.device.target_temperature,
-            self.device.fan_mode
+            self.device.is_on, self.device.hvac_mode, self.device.target_temperature, self.device.fan_mode
         )
         
-        # Send command
+        # Send command twice as per YAML
         success = await self.coordinator.async_send_command(self.device_num, packet)
         if success:
+            await self.coordinator.async_send_command(self.device_num, packet)
             self.async_write_ha_state()
+            # Request state update
+            await self.coordinator.async_request_refresh()

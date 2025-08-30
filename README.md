@@ -1,28 +1,36 @@
-# LG Air Conditioner for Home Assistant
+# LG Air Conditioner Integration for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+LG 에어컨을 Home Assistant에서 제어할 수 있는 통합 구성요소입니다.
 
-LG 에어컨을 Home Assistant에서 제어하기 위한 통합입니다.
+## 주요 기능
 
-## 기능
+- **연결 방식**: Socket (직접 연결) 및 MQTT 지원
+- **제어 기능**: 
+  - 전원 on/off
+  - 운전 모드 (냉방/난방/제습/송풍/자동)
+  - 온도 설정 (18°C ~ 30°C)
+  - 팬 속도 (저속/중속/고속/자동/정음/파워)
+  - 스윙 모드 (고정/자동)
+  - 잠금 기능
+- **모니터링**:
+  - 현재 온도
+  - 설정 온도
+  - 배관 온도 (1, 2)
+  - 실외기 온도
+  - 실외기 작동 상태
+- **HACS 지원**: 손쉬운 설치 및 업데이트
 
-- Socket 및 MQTT 연결 방식 지원
-- 최대 4대의 에어컨 동시 제어
-- 온도, 모드, 팬 속도, 스윙 모드 제어
-- 실시간 상태 모니터링
-- 잠금/해제 기능
-- HACS를 통한 쉬운 설치
+## 지원 엔티티
 
-## 지원되는 엔티티
+### Climate (에어컨 제어)
+- 전원, 모드, 온도, 팬속도, 스윙 통합 제어
 
-### Climate 엔티티
-- 전원 켜기/끄기
-- 운전 모드 변경 (자동, 냉방, 난방, 제습, 송풍)
-- 온도 설정 (18-30°C)
-- 팬 속도 조절 (낮음, 중간, 높음, 자동, 저소음, 파워)
-- 스윙 모드 (고정, 자동)
+### Binary Sensors (이진 센서)
+- 전원 상태
+- 잠금 상태
+- 실외기 작동 상태
 
-### 센서
+### Sensors (센서)
 - 현재 온도
 - 설정 온도
 - 배관1 온도
@@ -31,161 +39,115 @@ LG 에어컨을 Home Assistant에서 제어하기 위한 통합입니다.
 - 운전 모드
 - 팬 속도
 - 스윙 모드
-- 에러 코드
+- 원시 상태 데이터
 
-### 이진 센서
-- 전원 상태
-- 필터 알람
-- 잠금 상태
+### Switches (스위치)
+- 전원 스위치
+- 잠금 스위치
 
-### 스위치
-- 전원 켜기/끄기
-- 잠금/해제
-
-## 설치
+## 설치 방법
 
 ### HACS를 통한 설치 (권장)
 
-1. HACS에서 "통합" 탭으로 이동
-2. 우측 상단의 메뉴 버튼 (⋮) 클릭
-3. "사용자 정의 저장소" 선택
-4. 저장소 URL에 `https://github.com/pageskr/ha-lg-air-conditioner` 입력
-5. 카테고리는 "통합" 선택
-6. "추가" 버튼 클릭
-7. HACS 통합 탭에서 "LG Air Conditioner" 검색
-8. "설치" 버튼 클릭
-9. Home Assistant 재시작
+1. HACS에서 "Integrations" 탭을 클릭합니다
+2. 우측 상단의 메뉴(⋮)에서 "Custom repositories"를 선택합니다
+3. 저장소 URL 추가:
+   - Repository: `https://github.com/yourusername/ha-lg-air-conditioner`
+   - Category: `Integration` 선택
+4. "LG Air Conditioner"를 검색하여 설치합니다
+5. Home Assistant를 재시작합니다
 
 ### 수동 설치
 
-1. 이 저장소의 `custom_components/lg_air_conditioner` 폴더를 Home Assistant의 `custom_components` 디렉토리에 복사
-2. Home Assistant 재시작
+1. 이 저장소를 다운로드합니다
+2. `custom_components/lg_air_conditioner` 폴더를 Home Assistant의 `custom_components` 디렉토리에 복사합니다
+3. Home Assistant를 재시작합니다
 
-## 구성
+## 설정 방법
 
-### 1단계: 통합 추가
+### 통합 구성요소 추가
 
-1. Home Assistant 설정 → 통합 → 통합 추가
+1. Home Assistant 설정 → 통합 구성요소 → 통합 구성요소 추가
 2. "LG Air Conditioner" 검색
-3. 통합 추가 클릭
+3. 연결 방식 선택:
+   - **Socket**: 직접 IP 연결 (기본 포트: 8899)
+   - **MQTT**: MQTT 브로커를 통한 연결
 
-### 2단계: 연결 방식 선택
+### Socket 모드 설정
 
-#### Socket 모드 (직접 연결)
-- EW11 장치를 통한 직접 TCP/IP 연결
-- 필요한 정보:
-  - 호스트 IP: EW11 장치의 IP 주소
-  - 포트: 8899 (기본값)
-  - 스캔 간격: 30초 (기본값)
+- **호스트**: LG 에어컨 컨트롤러의 IP 주소
+- **포트**: 통신 포트 (기본값: 8899)
 
-#### MQTT 모드 (브로커 경유)
-- MQTT 브로커를 통한 연결
-- 필요한 정보:
-  - MQTT 브로커 주소
-  - MQTT 포트: 1883 (기본값)
-  - 사용자명/비밀번호 (선택사항)
-  - 토픽 설정:
-    - 상태 토픽: `lgac/state/{device_num}` (기본값)
-    - 명령 전송 토픽: `lgac/scan` (기본값)
-    - 데이터 수신 토픽: `ew11b/recv` (기본값)
-  - 스캔 간격: 30초 (기본값)
+### MQTT 모드 설정
 
-### 3단계: 설정 변경
+- **브로커**: MQTT 브로커 주소
+- **포트**: MQTT 포트 (기본값: 1883)
+- **사용자명/비밀번호**: MQTT 인증 정보 (선택사항)
+- **토픽**: 
+  - 상태 수신: `ew11b/recv`
+  - 명령 전송: `ew11b/send`
 
-통합 추가 후 설정 버튼을 클릭하여 연결 정보를 변경할 수 있습니다.
+## 사용 방법
 
-## 프로토콜 정보
+### Lovelace 카드 예시
 
-### 상태 요청 패킷
-```
-형식: 8000A3{device_num}
-예시: 8000A301 (1번 기기 상태 요청)
+```yaml
+type: thermostat
+entity: climate.lgac_01_cm
+name: 거실 에어컨
 ```
 
-### 상태 응답 패킷
-```
-형식: 10{source}A300{device_num}00{status}{opermode}{set_temp}{current_temp}{pipe1_temp}{pipe2_temp}{outdoor_temp}...{checksum}
+### 자동화 예시
 
-위치별 데이터 (16진수 2자리씩):
-- 00-01: 10 (헤더)
-- 02-03: source (송신 기기 번호)
-- 04-05: A3 (메시지 타입)
-- 06-07: 00
-- 08-09: device_num (대상 기기 번호: 01-04)
-- 10-11: 00
-- 12-13: status (전원/잠금 상태)
-  - 02: 전원 OFF, 잠금 OFF
-  - 03: 전원 OFF, 잠금 ON
-  - 06: 전원 ON, 잠금 ON
-  - 07: 전원 ON, 잠금 OFF
-- 14-15: opermode (운전모드 복합값)
-  - bit 0-2: HVAC 모드 (0=냉방, 1=제습, 2=송풍, 3=자동, 4=난방)
-  - bit 3: 스윙 모드 (0=고정, 1=자동)
-  - bit 4-6: 팬 모드 (1=낮음, 2=중간, 3=높음, 4=자동, 5=저소음, 6=파워)
-- 16-17: set_temp (설정 온도 - 15)
-- 18-19: current_temp (현재 온도 raw 값)
-- 20-21: pipe1_temp (배관1 온도 raw 값)
-- 22-23: pipe2_temp (배관2 온도 raw 값)
-- 24-25: outdoor_temp (실외 온도 raw 값)
-- 30-31: checksum
-
-온도 계산식: 실제온도 = 64 - (raw값 / 3)
-체크섬 계산: 
-  - sum = 모든 바이트 합계 (체크섬 제외)
-  - checksum = (sum & 0xAA) + (85 - (sum & 0x55))
-```
-
-### 제어 패킷
-```
-형식: 8000A3{device_num}{status}{opermode}{temperature}{checksum}
-
-예시: 8000A301070A0DC5
-- device_num: 01 (1번 기기)
-- status: 07 (전원 ON, 잠금 OFF)
-- opermode: 0A (냉방 + 팬 자동 + 스윙 고정)
-- temperature: 0D (설정온도 28°C = 28-15 = 13 = 0x0D)
-- checksum: C5
+```yaml
+automation:
+  - alias: "에어컨 자동 제어"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.room_temperature
+        above: 28
+    action:
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.lgac_01_cm
+        data:
+          temperature: 24
+          hvac_mode: cool
 ```
 
 ## 문제 해결
 
-### Socket 연결 실패
-- EW11 장치의 IP 주소가 올바른지 확인
-- 포트 8899가 열려있는지 확인
-- 방화벽 설정 확인
-- EW11 장치와 Home Assistant가 같은 네트워크에 있는지 확인
+### 연결이 안 될 때
 
-### MQTT 연결 실패
-- MQTT 브로커가 실행 중인지 확인
-- 사용자명/비밀번호가 올바른지 확인
-- 토픽 권한 설정 확인
-- MQTT 브로커 로그 확인
+1. IP 주소와 포트가 올바른지 확인
+2. 방화벽 설정 확인
+3. MQTT의 경우 브로커 연결 상태 확인
 
-### 상태가 업데이트되지 않음
-- 로그에서 "hex parsing state" 메시지 확인
-- 수신되는 패킷이 "10XXA3"으로 시작하는지 확인
-- lgac_forward.py가 실행 중인지 확인 (MQTT 모드)
-- 체크섬 검증 실패 시 패킷이 무시될 수 있음
+### 상태가 업데이트되지 않을 때
 
-## 로그 확인
+1. 로그에서 오류 메시지 확인
+2. 패킷 형식이 올바른지 확인
+3. 체크섬 오류가 있는지 확인
 
-디버그 로그를 활성화하려면 `configuration.yaml`에 다음 추가:
+## 기술 정보
 
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.lg_air_conditioner: debug
-```
+### 통신 프로토콜
 
-## 호환성
+- 상태 요청: `8000A3{device}00{temp}{mode}{checksum}`
+- 상태 응답: `1002A3{device}00{status}{mode}{temps...}{checksum}`
+- 제어 명령: `8000A3{device}{status}{temp}{mode}{checksum}`
 
-- Home Assistant 2023.0.0 이상
-- Python 3.9 이상
-- MQTT 모드 사용 시 MQTT 브로커 필요
-- Socket 모드 사용 시 EW11 또는 호환 장치 필요
+### 패킷 구조
 
-## 라이센스
+- 상태 바이트: 2=off, 3=on, 6=off+lock, 7=on+lock
+- 모드 바이트: HVAC(0-4) + 팬(0x10-0x60) + 스윙(0x08)
+- 온도 인코딩: 설정온도 = 패킷값 + 15
+
+## 기여하기
+
+버그 리포트, 기능 요청, 풀 리퀘스트를 환영합니다!
+
+## 라이선스
 
 MIT License
 
@@ -193,30 +155,6 @@ MIT License
 
 Pages in Korea (pages.kr)
 
-## 기여
+## 감사의 말
 
-이슈 및 PR은 언제나 환영합니다!
-
-### 기여 방법
-1. 이 저장소를 Fork
-2. 새로운 기능 브랜치 생성 (`git checkout -b feature/amazing-feature`)
-3. 변경사항 커밋 (`git commit -m 'Add some amazing feature'`)
-4. 브랜치에 푸시 (`git push origin feature/amazing-feature`)
-5. Pull Request 생성
-
-## 변경 내역
-
-### v1.0.1 (2025-08-30)
-- 패킷 구조 분석 개선
-- 스윙 모드 지원 추가
-- 잠금/해제 기능 추가
-- 배관 및 실외 온도 센서 추가
-- 체크섬 검증 로직 구현
-- 설정 변경 기능 추가
-
-### v1.0.0 (2025-08-30)
-- 최초 릴리스
-- Socket 및 MQTT 연결 지원
-- 4대 기기 동시 제어
-- Climate, Sensor, Binary Sensor, Switch 엔티티 지원
-- HACS 호환성 추가
+이 프로젝트는 LG 에어컨 사용자들의 편의를 위해 제작되었습니다.

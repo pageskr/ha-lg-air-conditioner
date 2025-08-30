@@ -139,9 +139,10 @@ class LGMQTTClient:
             _LOGGER.warning("Not connected to MQTT broker")
             return
         
-        # Send state request packet
-        from .const import STATE_REQUEST_PACKET_FORMAT
-        packet = STATE_REQUEST_PACKET_FORMAT.format(device_num=device_num)
+        # Generate state request packet using device method
+        from .device import LGAirConditionerDevice
+        device = LGAirConditionerDevice(device_num)
+        packet = device.get_status_request_packet()
         
         _LOGGER.info("Requesting state for device %s with packet: %s", device_num, packet)
         
