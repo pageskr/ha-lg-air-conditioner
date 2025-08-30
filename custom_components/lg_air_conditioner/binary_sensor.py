@@ -28,6 +28,7 @@ async def async_setup_entry(
         entities.extend([
             LGAirConditionerPowerSensor(coordinator, device_num),
             LGAirConditionerFilterSensor(coordinator, device_num),
+            LGAirConditionerLockSensor(coordinator, device_num),
         ])
     
     async_add_entities(entities)
@@ -82,6 +83,39 @@ class LGAirConditionerFilterSensor(LGAirConditionerEntity, BinarySensorEntity):
     def is_on(self) -> bool:
         """Return true if the binary sensor is on."""
         return self.device.filter_alarm
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self.device.is_available
+
+
+class LGAirConditionerLockSensor(LGAirConditionerEntity, BinarySensorEntity):
+    """LG Air Conditioner lock state sensor."""
+
+    def __init__(
+        self,
+        coordinator: LGAirConditionerCoordinator,
+        device_num: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, device_num, "lock")
+        self._attr_device_class = BinarySensorDeviceClass.LOCK
+
+    @property
+    def name(self) -> str:
+        """Return the name of the sensor."""
+        return f"에어컨 {self.device_num} 잠금"
+
+    @property
+    def icon(self) -> str:
+        """Return the icon to use in the frontend."""
+        return "mdi:lock" if self.is_on else "mdi:lock-open"
+
+    @property
+    def is_on(self) -> bool:
+        """Return true if the binary sensor is on (locked)."""
+        return self.device.is_locked
 
     @property
     def available(self) -> bool:

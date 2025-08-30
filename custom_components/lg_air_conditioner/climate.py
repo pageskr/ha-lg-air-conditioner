@@ -20,6 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 SUPPORT_FLAGS = (
     ClimateEntityFeature.TARGET_TEMPERATURE
     | ClimateEntityFeature.FAN_MODE
+    | ClimateEntityFeature.SWING_MODE
 )
 
 HVAC_MODES = [
@@ -31,7 +32,8 @@ HVAC_MODES = [
     HVACMode.AUTO,
 ]
 
-FAN_MODES = ["low", "medium", "high", "auto", "power", "nature"]
+FAN_MODES = ["low", "medium", "high", "auto", "silent", "power"]
+SWING_MODES = ["fix", "auto"]
 
 
 async def async_setup_entry(
@@ -62,6 +64,7 @@ class LGAirConditionerClimate(LGAirConditionerEntity, ClimateEntity):
         self._attr_supported_features = SUPPORT_FLAGS
         self._attr_hvac_modes = HVAC_MODES
         self._attr_fan_modes = FAN_MODES
+        self._attr_swing_modes = SWING_MODES
         self._attr_temperature_unit = UnitOfTemperature.CELSIUS
         self._attr_min_temp = 18
         self._attr_max_temp = 30
@@ -101,6 +104,11 @@ class LGAirConditionerClimate(LGAirConditionerEntity, ClimateEntity):
     def fan_mode(self) -> Optional[str]:
         """Return the fan setting."""
         return self.device.fan_mode
+
+    @property
+    def swing_mode(self) -> Optional[str]:
+        """Return the swing setting."""
+        return self.device.swing_mode
 
     @property
     def available(self) -> bool:
@@ -168,4 +176,19 @@ class LGAirConditionerClimate(LGAirConditionerEntity, ClimateEntity):
         success = await self.coordinator.async_send_command(self.device_num, packet)
         if success:
             self.device.fan_mode = fan_mode
+            self.async_write_ha_state()
+
+    async def async_set_swing_mode(self, swing_mode: str) -> None:
+        """Set new target swing mode."""
+        # Update device swing mode
+        self.device.swing_mode = swing_mode
+        
+        # Generate control packet
+        packet = self.device.get_control_packet(
+            self.device.is_on, self.device.hvac_mode, self.device.target_temperature, self.device.fan_mode
+        )
+        
+        # Send command
+        success = await self.coordinator.async_send_command(self.device_num, packet)
+        if success:
             self.async_write_ha_state()
